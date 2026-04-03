@@ -5,13 +5,33 @@ import json
 from typing import Dict, List, Optional
 from pathlib import Path
 
-from config import METADATA_FILE
+from config import METADATA_FILE, DATA_ROOT
 from models import Dataset, DatasetListItem
+
+
+def resolve_data_path(relative_path: str) -> str:
+    """
+    将相对路径转换为绝对路径
+
+    Args:
+        relative_path: 相对于 DATA_ROOT 的路径
+
+    Returns:
+        str: 绝对路径
+    """
+    # 如果已经是绝对路径，直接返回
+    if Path(relative_path).is_absolute():
+        return relative_path
+
+    # 拼接为绝对路径
+    absolute_path = DATA_ROOT / relative_path
+    return str(absolute_path.resolve())
 
 
 def load_metadata() -> Dict[str, Dataset]:
     """
     加载 metadata.json，返回数据集字典
+    将相对路径转换为绝对路径
 
     Returns:
         Dict[str, Dataset]: {数据集名称: Dataset对象}
@@ -27,6 +47,11 @@ def load_metadata() -> Dict[str, Dataset]:
         # 如果没有 displayName，使用 name 作为默认值
         if 'displayName' not in config:
             config['displayName'] = name
+
+        # 将相对路径转换为绝对路径
+        if 'path' in config:
+            config['path'] = resolve_data_path(config['path'])
+
         result[name] = Dataset(**config)
 
     return result

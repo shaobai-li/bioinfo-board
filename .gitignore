@@ -1,6 +1,6 @@
 # data directory
 
-figures/
+.env
 .cursor/
 __pycache__/
 data/
