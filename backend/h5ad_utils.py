@@ -1,55 +1,201 @@
+"""
+h5ad 数据处理工具模块
+"""
 import scanpy as sc
-import json
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')  # 非交互式后端
+from pathlib import Path
+from typing import Optional, Tuple
+
+from config import OUTPUTS_DIR
+from data_loader import get_dataset
+
+# 内存缓存：数据集名称 -> adata 对象
+_data_cache = {}
 
 
+def load_h5ad(dataset_name: str) -> sc.AnnData:
+    """
+    加载 h5ad 文件（带缓存）
 
+    Args:
+        dataset_name: 数据集名称
 
-def load_data(file_path, box):
-    adata = sc.read(file_path, n_jobs=12)
+    Returns:
+        sc.AnnData:  AnnData 对象
+
+    Raises:
+        FileNotFoundError: 文件不存在
+        ValueError: 数据集配置不存在
+    """
+    # 检查缓存
+    if dataset_name in _data_cache:
+        return _data_cache[dataset_name]
+
+    # 获取数据集配置
+    dataset = get_dataset(dataset_name)
+    if not dataset:
+        raise ValueError(f"Dataset '{dataset_name}' not found in metadata")
+
+    # 读取文件
+    file_path = dataset.path
+    if not Path(file_path).exists():
+        raise FileNotFoundError(f"h5ad file not found: {file_path}")
+
+    adata = sc.read(file_path)
+
+    # 清空 uns 避免序列化问题
     adata.uns = {}
 
-    # maxvalue = adata.X.max()
-    # if maxvalue > 10:
-    #     sc.pp.log1p(adata)
+    # 提取降维坐标到 obs（方便绘图）
+    if dataset.obsm in adata.obsm:
+        adata.obs['RD1'] = adata.obsm[dataset.obsm][:, 0]
+        adata.obs['RD2'] = adata.obsm[dataset.obsm][:, 1]
 
-    adata.obs['RD1'] = adata.obsm[metadata[box]['obsm']][:, 0]
-    adata.obs['RD2'] = adata.obsm[metadata[box]['obsm']][:, 1]
+    # 设置细胞类型分类（保持原有顺序）
+    if dataset.type in adata.obs:
+        celltype_col = dataset.type
+        lst_order = adata.obs[celltype_col].unique()
+        adata.obs['celltype'] = adata.obs[celltype_col].astype('category').cat.set_categories(lst_order)
 
-    lst_order = adata.obs[metadata[box]['type']].unique()
-    adata.obs['celltype'] = adata.obs[metadata[box]['type']].astype('category').cat.set_categories(lst_order)
-
-    # st.session_state['counter'] += 1
-    # st.write(f"counter: {st.session_state['counter']}")
+    # 存入缓存
+    _data_cache[dataset_name] = adata
 
     return adata
 
 
+def validate_gene(adata: sc.AnnData, gene: str) -> bool:
+    """
+    验证基因是否存在于数据集中
 
-if __name__ == "__main__":
-        
-    with open("frontend/data/metadata.json", 'r', encoding='utf-8') as file:
-        metadata = json.load(file)
-    adata = load_data('frontend/data/pig_testis.h5ad', 'pig_testis')
+    Args:
+        adata: AnnData 对象
+        gene: 基因名称
 
-    gene_list = adata.var_names
-    print(gene_list)
-    print(len(gene_list))
-    print(type(gene_list.tolist()))
+    Returns:
+        bool: 是否存在
+    """
+    return gene in adata.var_names
 
-    exit(0)
 
-    sc.pl.umap(adata, color=['celltype_qin'], show=False, save='_pig_testis_celltype_qin.png')
-    sc.pl.umap(adata, color=['KIT',], show=False, save='_pig_testis_gene.png')
+def get_dataset_output_dir(dataset_name: str) -> Path:
+    """
+    获取数据集的图片输出目录
 
-    ax = sc.pl.violin(adata, ['KIT',], groupby='celltype_qin', show=False)
+    Args:
+        dataset_name: 数据集名称
 
-    # 旋转 x 轴标签
-    plt.xticks(rotation=45, ha='right')
-    # 或者使用 ax 对象
-    # ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
-    # 调整布局
+    Returns:
+        Path: 输出目录路径
+    """
+    output_dir = OUTPUTS_DIR / dataset_name
+    output_dir.mkdir(parents=True, exist_ok=True)
+    return output_dir
+
+
+def generate_celltype_plot(dataset_name: str) -> str:
+    """
+    生成主细胞类型图（UMAP/t-SNE 按细胞类型着色）
+
+    Args:
+        dataset_name: 数据集名称
+
+    Returns:
+        str: 生成的图片文件名（如 'celltype.png'）
+    """
+    adata = load_h5ad(dataset_name)
+    dataset = get_dataset(dataset_name)
+
+    output_dir = get_dataset_output_dir(dataset_name)
+    output_file = output_dir / "celltype.png"
+
+    # 绘图
+    fig, ax = plt.subplots(figsize=(10, 8))
+
+    sc.pl.scatter(
+        adata,
+        x='RD1',
+        y='RD2',
+        color='celltype',
+        ax=ax,
+        show=False,
+        title=f"{dataset_name} - Cell Types"
+    )
+
     plt.tight_layout()
-    # 手动保存
-    plt.savefig('figures/violin_pig_testis_gene_violin.png', bbox_inches='tight', dpi=300)
-    plt.close()
+    plt.savefig(output_file, dpi=150, bbox_inches='tight')
+    plt.close(fig)
+
+    return "celltype.png"
+
+
+def generate_gene_plots(dataset_name: str, gene: str) -> Tuple[str, str]:
+    """
+    生成基因表达图（小提琴图 + UMAP图）
+
+    Args:
+        dataset_name: 数据集名称
+        gene: 基因名称
+
+    Returns:
+        Tuple[str, str]: (小提琴图文件名, UMAP图文件名)
+
+    Raises:
+        ValueError: 基因不存在
+    """
+    adata = load_h5ad(dataset_name)
+
+    # 验证基因存在
+    if not validate_gene(adata, gene):
+        raise ValueError(f"Gene '{gene}' not found in dataset '{dataset_name}'")
+
+    output_dir = get_dataset_output_dir(dataset_name)
+    violin_file = output_dir / f"{gene}_violin.png"
+    umap_file = output_dir / f"{gene}_umap.png"
+
+    # 1. 生成小提琴图
+    fig, ax = plt.subplots(figsize=(12, 6))
+    sc.pl.violin(
+        adata,
+        [gene],
+        groupby='celltype',
+        ax=ax,
+        show=False
+    )
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+    plt.savefig(violin_file, dpi=150, bbox_inches='tight')
+    plt.close(fig)
+
+    # 2. 生成 UMAP 图（按基因表达量着色）
+    fig, ax = plt.subplots(figsize=(10, 8))
+    sc.pl.scatter(
+        adata,
+        x='RD1',
+        y='RD2',
+        color=gene,
+        ax=ax,
+        show=False,
+        color_map='viridis',
+        title=f"{gene} Expression"
+    )
+    plt.tight_layout()
+    plt.savefig(umap_file, dpi=150, bbox_inches='tight')
+    plt.close(fig)
+
+    return (f"{gene}_violin.png", f"{gene}_umap.png")
+
+
+def clear_cache(dataset_name: Optional[str] = None):
+    """
+    清除缓存（用于内存管理）
+
+    Args:
+        dataset_name: 指定数据集名称，None 则清除所有
+    """
+    global _data_cache
+    if dataset_name:
+        _data_cache.pop(dataset_name, None)
+    else:
+        _data_cache.clear()
