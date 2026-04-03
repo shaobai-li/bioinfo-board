@@ -2,3 +2,4 @@
 
 figures/
 .cursor/
+__pycache__/
