@@ -25,7 +25,7 @@ export function LeftMainArea() {
         const fullUrl = getImageUrl(response.imageUrl);
         setImageUrl(fullUrl);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "加载失败");
+        setError(err instanceof Error ? err.message : "Failed to load");
       } finally {
         setLoading(false);
       }
@@ -37,7 +37,7 @@ export function LeftMainArea() {
   if (!currentDataset) {
     return (
       <div className="flex-1 min-w-0 h-full flex items-center justify-center bg-muted/20">
-        <p className="text-muted-foreground">请选择一个数据集</p>
+        <p className="text-muted-foreground">No dataset selected</p>
       </div>
     );
   }
@@ -45,7 +45,7 @@ export function LeftMainArea() {
   if (loading) {
     return (
       <div className="flex-1 min-w-0 h-full flex items-center justify-center bg-muted/20">
-        <p className="text-muted-foreground">加载中...</p>
+        <p className="text-muted-foreground">Loading...</p>
       </div>
     );
   }
@@ -61,7 +61,7 @@ export function LeftMainArea() {
   if (!imageUrl) {
     return (
       <div className="flex-1 min-w-0 h-full flex items-center justify-center bg-muted/20">
-        <p className="text-muted-foreground">暂无图片</p>
+        <p className="text-muted-foreground">No image</p>
       </div>
     );
   }
@@ -70,7 +70,7 @@ export function LeftMainArea() {
     <div className="flex-1 min-w-0 h-full relative">
       <Image
         src={imageUrl}
-        alt={`${currentDataset} 细胞类型图`}
+        alt={`${currentDataset} celltype plot`}
         fill
         className="object-contain"
         unoptimized // 后端动态生成，禁用 Next.js 图片优化

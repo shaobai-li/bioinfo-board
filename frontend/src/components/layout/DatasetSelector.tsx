@@ -47,7 +47,7 @@ export function DatasetSelector() {
           onValueChange={handleSelect}
         >
           <SelectTrigger className="flex-1">
-            <SelectValue placeholder={loading ? "加载中..." : "选择数据集..."} />
+            <SelectValue placeholder={loading ? "Loading..." : "Select Dataset..."} />
           </SelectTrigger>
           <SelectContent>
             {datasets.map((dataset) => (

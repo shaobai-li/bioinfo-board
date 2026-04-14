@@ -58,11 +58,11 @@ export function RightPanel() {
     data-[state=active]:z-20
   `;
 
-  const tabContentClass = "flex-1 border border-black mt-[-1px] overflow-hidden";
+  const tabContentClass = "flex-1 min-h-0 border border-black mt-[-1px] overflow-hidden";
 
   return (
     <section className="h-full w-1/2">
-      <Tabs defaultValue="overview" className="h-full flex flex-col gap-0">
+      <Tabs defaultValue="cell-type-expression" className="h-full flex flex-col gap-0">
         {/* TabsList */}
         <TabsList className="bg-transparent p-0 h-auto gap-0 justify-start shrink-0">
           <TabsTrigger value="overview" className={tabTriggerClass}>
@@ -77,19 +77,19 @@ export function RightPanel() {
         <TabsContent value="overview" className={tabContentClass}>
           <ScrollArea className="h-full">
             <div className="p-4">
-              <p className="text-muted-foreground">Overview 内容区域</p>
+              <p className="text-muted-foreground">Overview content area</p>
             </div>
           </ScrollArea>
         </TabsContent>
 
         {/* Cell Type Expression 内容区域 */}
         <TabsContent value="cell-type-expression" className={tabContentClass}>
-          <ScrollArea className="h-full">
-            <div className="p-4 space-y-4">
+          <div className="h-full overflow-auto">
+            <div className="flex h-full min-h-full flex-col p-4 space-y-4 border">
               {/* 基因搜索框 */}
               <div className="flex gap-2">
                 <Input
-                  placeholder="输入基因名称（如 KIT）"
+                  placeholder="Enter gene name (e.g. KIT)"
                   value={geneInput}
                   onChange={(e) => setGeneInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -99,7 +99,7 @@ export function RightPanel() {
                   onClick={handleSearch}
                   disabled={!currentDataset || !geneInput.trim() || loading}
                 >
-                  {loading ? "查询中..." : "查询"}
+                  {loading ? "Searching..." : "Search"}
                 </Button>
               </div>
 
@@ -111,10 +111,12 @@ export function RightPanel() {
               )}
 
               {/* 未选择数据集提示 */}
-              {!currentDataset && (
-                <p className="text-muted-foreground text-sm">
-                  请先选择一个数据集
-                </p>
+              {(!currentDataset || !geneInput.trim()) && (
+                <div className="flex flex-1 items-center justify-center">
+                  <p className="text-muted-foreground text-sm text-center">
+                    No gene selected
+                  </p>
+                </div>
               )}
 
               {/* 基因表达图 */}
@@ -143,7 +145,7 @@ export function RightPanel() {
                 </div>
               )}
             </div>
-          </ScrollArea>
+          </div>
         </TabsContent>
       </Tabs>
     </section>
