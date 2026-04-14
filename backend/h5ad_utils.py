@@ -1,9 +1,12 @@
 """
 h5ad 数据处理工具模块
 """
+import numpy as np
 import scanpy as sc
 import matplotlib.pyplot as plt
 import matplotlib
+from matplotlib.axes import Axes
+
 matplotlib.use('Agg')  # 非交互式后端
 from pathlib import Path
 from typing import Optional, Tuple
@@ -65,6 +68,54 @@ def load_h5ad(dataset_name: str) -> sc.AnnData:
     return adata
 
 
+def _gene_expression_values(adata: sc.AnnData, gene: str) -> np.ndarray:
+    """与 scanpy 绘图一致：若存在 raw 且含该基因则取 raw 表达。"""
+    if adata.raw is not None and gene in adata.raw.var_names:
+        m = adata.raw[:, gene].X
+    else:
+        m = adata[:, gene].X
+    if hasattr(m, "toarray"):
+        return np.asarray(m.toarray()).ravel()
+    return np.asarray(m).ravel()
+
+
+def _plot_gene_embedding_umap(
+    adata: sc.AnnData,
+    gene: str,
+    ax: Axes,
+    *,
+    color_map: str = "viridis",
+    title: Optional[str] = None,
+) -> None:
+    """
+    基因表达散点图；用 matplotlib.colorbar(ax=...) 把 colorbar 放在主坐标轴右侧。
+    """
+    expr = _gene_expression_values(adata, gene)
+    x = adata.obs["RD1"].to_numpy()
+    y = adata.obs["RD2"].to_numpy()
+    order = np.argsort(expr)
+    x, y, expr = x[order], y[order], expr[order]
+
+    n = adata.n_obs
+    pt_size = 120000.0 / max(n, 1)
+
+    coll = ax.scatter(
+        x,
+        y,
+        c=expr,
+        cmap=color_map,
+        s=pt_size,
+        edgecolors="none",
+        linewidths=0,
+    )
+    ax.set_title(title or f"{gene} Expression")
+    ax.set_xlabel("RD1")
+    ax.set_ylabel("RD2")
+
+    fig = ax.figure
+    fig.colorbar(coll, ax=ax, fraction=0.04, pad=0.12)
+
+
 def validate_gene(adata: sc.AnnData, gene: str) -> bool:
     """
     验证基因是否存在于数据集中
@@ -110,8 +161,8 @@ def generate_celltype_plot(dataset_name: str) -> str:
     output_dir = get_dataset_output_dir(dataset_name)
     output_file = output_dir / "celltype.png"
 
-    # 绘图
-    fig, ax = plt.subplots(figsize=(10, 8))
+    # 略加宽画布，左侧留给图例，避免与散点区挤在一起
+    fig, ax = plt.subplots(figsize=(12, 8))
 
     sc.pl.scatter(
         adata,
@@ -123,8 +174,14 @@ def generate_celltype_plot(dataset_name: str) -> str:
         title=f"{dataset_name} - Cell Types"
     )
 
-    plt.tight_layout()
-    plt.savefig(output_file, dpi=150, bbox_inches='tight')
+    # 图例放在散点图左侧：锚点取图例框的右侧中点，对齐到坐标轴左侧更负处，间距更大
+    leg = ax.get_legend()
+    if leg is not None:
+        leg.set_loc("center right")
+        leg.set_bbox_to_anchor((-0.18, 0.5), transform=ax.transAxes)
+
+    plt.tight_layout(rect=[0.06, 0.06, 0.98, 0.94])
+    plt.savefig(output_file, dpi=150, bbox_inches="tight", pad_inches=0.15)
     plt.close(fig)
 
     return "celltype.png"
@@ -169,19 +226,13 @@ def generate_gene_plots(dataset_name: str, gene: str) -> Tuple[str, str]:
     plt.close(fig)
 
     # 2. 生成 UMAP 图（按基因表达量着色）
+    # 不用 sc.pl.scatter(ax=...)：连续色时 scanpy 的 colorbar 在自定义 ax 上常错位
     fig, ax = plt.subplots(figsize=(10, 8))
-    sc.pl.scatter(
-        adata,
-        x='RD1',
-        y='RD2',
-        color=gene,
-        ax=ax,
-        show=False,
-        color_map='viridis',
-        title=f"{gene} Expression"
+    _plot_gene_embedding_umap(
+        adata, gene, ax, color_map="viridis", title=f"{gene} Expression"
     )
     plt.tight_layout()
-    plt.savefig(umap_file, dpi=150, bbox_inches='tight')
+    plt.savefig(umap_file, dpi=150, bbox_inches="tight", pad_inches=0.2)
     plt.close(fig)
 
     return (f"{gene}_violin.png", f"{gene}_umap.png")

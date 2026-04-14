@@ -48,7 +48,8 @@ export async function getCelltypePlot(
   datasetName: string
 ): Promise<CelltypePlotResponse> {
   const response = await fetch(
-    `${API_BASE_URL}/api/datasets/${datasetName}/celltype`
+    `${API_BASE_URL}/api/datasets/${datasetName}/celltype`,
+    { cache: "no-store" }
   );
   if (!response.ok) {
     if (response.status === 404) {

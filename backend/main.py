@@ -69,7 +69,9 @@ def get_celltype_plot_endpoint(name: str):
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to generate plot: {str(e)}")
 
-    return CelltypePlotResponse(imageUrl=f"/api/images/{name}/celltype.png")
+    # 用文件 mtime 作为 query，避免浏览器长期缓存旧 PNG（改图后 URL 会变）
+    v = int(image_file.stat().st_mtime)
+    return CelltypePlotResponse(imageUrl=f"/api/images/{name}/celltype.png?v={v}")
 
 
 @app.get("/api/datasets/{name}/gene/{gene}", response_model=GenePlotsResponse)
@@ -123,7 +125,11 @@ def get_image(dataset: str, filename: str):
     if not image_path.is_file():
         raise HTTPException(status_code=400, detail="Not a file")
 
-    return FileResponse(image_path, media_type="image/png")
+    return FileResponse(
+        image_path,
+        media_type="image/png",
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
 
 
 if __name__ == "__main__":
