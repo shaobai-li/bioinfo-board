@@ -32,4 +32,5 @@ APP_PORT = 8000
 CORS_ORIGINS = [
     "http://localhost:3000",  # Next.js 开发服务器
     "http://127.0.0.1:3000",
+    "http://192.115.121.63:3000",
 ]

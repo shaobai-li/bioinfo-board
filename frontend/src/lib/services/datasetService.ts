@@ -1,6 +1,34 @@
 // 前端数据集服务层 - 调用 Python 后端 API
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+function getApiBaseUrl(): string {
+  const configuredUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (configuredUrl) {
+    try {
+      const parsed = new URL(configuredUrl);
+      // If configured as localhost but page is opened via LAN IP,
+      // rewrite hostname to current page hostname for local-network access.
+      if (
+        typeof window !== "undefined" &&
+        (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") &&
+        window.location.hostname !== "localhost" &&
+        window.location.hostname !== "127.0.0.1"
+      ) {
+        parsed.hostname = window.location.hostname;
+      }
+      return parsed.toString().replace(/\/$/, "");
+    } catch {
+      // Fall back to runtime-derived URL below.
+    }
+  }
+
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
+  }
+
+  return "http://localhost:8000";
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 export interface Dataset {
   name: string;
