@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse
 import uvicorn
 from pathlib import Path
 
-from config import APP_HOST, APP_PORT, CORS_ORIGINS, OUTPUTS_DIR
+from config import APP_HOST, APP_PORT, CORS_ORIGINS, CORS_ORIGIN_REGEX, OUTPUTS_DIR
 from data_loader import get_dataset_list, dataset_exists
 from models import (
     DatasetListResponse,
@@ -27,6 +27,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
+    allow_origin_regex=CORS_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

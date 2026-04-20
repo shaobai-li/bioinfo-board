@@ -32,5 +32,7 @@ APP_PORT = 8000
 CORS_ORIGINS = [
     "http://localhost:3000",  # Next.js 开发服务器
     "http://127.0.0.1:3000",
-    "http://192.115.121.63:3000",
 ]
+
+# 允许任意 IPv4 地址通过 3000 端口访问（例如公网/局域网 IP）
+CORS_ORIGIN_REGEX = r"^https?://(\d{1,3}\.){3}\d{1,3}:3000$"
