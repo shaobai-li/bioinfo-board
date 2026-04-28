@@ -6,6 +6,7 @@ import scanpy as sc
 import matplotlib.pyplot as plt
 import matplotlib
 from matplotlib.axes import Axes
+from collections import OrderedDict
 
 matplotlib.use('Agg')  # 非交互式后端
 from pathlib import Path
@@ -14,8 +15,10 @@ from typing import Optional, Tuple
 from config import OUTPUTS_DIR
 from data_loader import get_dataset
 
-# 内存缓存：数据集名称 -> adata 对象
-_data_cache = {}
+# 内存缓存：数据集名称 -> adata 对象（LRU，限制最大缓存数量防止内存溢出）
+_data_cache: OrderedDict = OrderedDict()
+# 最多缓存 2 个数据集，超出时淘汰最久未使用的
+_MAX_CACHED_DATASETS = 2
 
 
 def load_h5ad(dataset_name: str) -> sc.AnnData:
@@ -32,8 +35,9 @@ def load_h5ad(dataset_name: str) -> sc.AnnData:
         FileNotFoundError: 文件不存在
         ValueError: 数据集配置不存在
     """
-    # 检查缓存
+    # 检查缓存（LRU：命中时将条目移到末尾）
     if dataset_name in _data_cache:
+        _data_cache.move_to_end(dataset_name)
         return _data_cache[dataset_name]
 
     # 获取数据集配置
@@ -62,8 +66,10 @@ def load_h5ad(dataset_name: str) -> sc.AnnData:
         lst_order = adata.obs[celltype_col].unique()
         adata.obs['celltype'] = adata.obs[celltype_col].astype('category').cat.set_categories(lst_order)
 
-    # 存入缓存
+    # 存入缓存，超出上限则淘汰最久未使用的
     _data_cache[dataset_name] = adata
+    if len(_data_cache) > _MAX_CACHED_DATASETS:
+        _data_cache.popitem(last=False)
 
     return adata
 
