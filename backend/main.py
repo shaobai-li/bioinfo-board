@@ -96,11 +96,17 @@ def get_gene_plots_endpoint(name: str, gene: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate plots: {str(e)}")
 
+    # 用文件 mtime 加版本号，使浏览器可安全缓存
+    violin_path = OUTPUTS_DIR / name / violin_file
+    umap_path = OUTPUTS_DIR / name / umap_file
+    v_violin = int(violin_path.stat().st_mtime)
+    v_umap = int(umap_path.stat().st_mtime)
+
     return GenePlotsResponse(
         gene=gene,
         dataset=name,
-        violinUrl=f"/api/images/{name}/{violin_file}",
-        umapUrl=f"/api/images/{name}/{umap_file}"
+        violinUrl=f"/api/images/{name}/{violin_file}?v={v_violin}",
+        umapUrl=f"/api/images/{name}/{umap_file}?v={v_umap}"
     )
 
 
@@ -129,7 +135,7 @@ def get_image(dataset: str, filename: str):
     return FileResponse(
         image_path,
         media_type="image/png",
-        headers={"Cache-Control": "no-cache, must-revalidate"},
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
     )
 
 
